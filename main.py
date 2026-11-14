@@ -1,31 +1,38 @@
-"""food-picture-01 entry: "Noodles at Golden Hour".
+"""food-picture-01 entry: "Sate at Golden Hour".
 
-Copies the bundled photograph of a steaming ramen bowl to the output
-directory as entry.png. The image was resized to fit within 1024x1024
-(preserving aspect ratio, never cropped) and compressed under 1 MiB
-during the build, so this program only copies bytes.
+Writes the bundled photograph of Indonesian chicken satay -- skewers
+with glossy peanut sauce, charred caramelised edges, steam rising --
+to the output directory as entry.png. The image was sized to fit
+within 1024x1024 (aspect ratio preserved, never cropped) and kept
+under 1 MiB during the build, so this program only copies bytes.
 """
 
 import os
-import shutil
 
-SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "entry.png")
+HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(HERE, "assets", "entry.png")
 MAX_BYTES = 1048576  # competition cap: 1 MiB
-MAX_SIDE = 1024  # competition cap: 1024x1024
+MAX_SIDE = 1024  # competition cap: 1024x1024 pixels
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 def main():
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
     os.makedirs(out_dir, exist_ok=True)
     dest = os.path.join(out_dir, "entry.png")
-    shutil.copyfile(SRC, dest)
-    # Guard the competition limits: refuse to emit an invalid entry.
-    size = os.path.getsize(dest)
-    if size > MAX_BYTES:
-        raise SystemExit(f"entry.png too large: {size} bytes > {MAX_BYTES}")
-    with open(dest, "rb") as f:
-        if f.read(8) != b"\x89PNG\r\n\x1a\n":
-            raise SystemExit("entry.png is not a PNG")
+    with open(SRC, "rb") as f:
+        data = f.read()
+    if len(data) > MAX_BYTES:
+        raise SystemExit(f"entry.png too large: {len(data)} bytes > {MAX_BYTES}")
+    if not data.startswith(PNG_MAGIC):
+        raise SystemExit("entry.png is not a PNG")
+    # PNG header: width and height are big-endian uint32 at bytes 16 and 20.
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    if width > MAX_SIDE or height > MAX_SIDE:
+        raise SystemExit(f"entry.png too big: {width}x{height} > {MAX_SIDE}x{MAX_SIDE}")
+    with open(dest, "wb") as f:
+        f.write(data)
 
 
 if __name__ == "__main__":
